@@ -1,3 +1,6 @@
+# MacOs file
+.DS_Store
+
 # VSCode config
 .vscode/
 
