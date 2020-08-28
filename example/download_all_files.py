@@ -7,7 +7,7 @@ from ensap.connector import Connector
 # Download all document in your ensap
 def main():
     ensap = Connector()
-    ensap.is_authenticate('193089741185488', 'OSlT0vYeTh3Ba1N6')
+    ensap.is_authenticate('<id>', '<password>')
     years = ensap.get_years()
     print(years)
     for year in years:
