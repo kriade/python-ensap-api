@@ -6,6 +6,7 @@ import os
 
 # Additionnal library
 from requests import Session
+import dateparser
 
 
 # Constant
@@ -14,7 +15,8 @@ URL = {
     'LOGOUT'        :   'https://ensap.gouv.fr/prive/deconnexion/v1',
     'HOME'          :   'https://ensap.gouv.fr/prive/accueilconnecte/v1',
     'REMUNERATION'  :   'https://ensap.gouv.fr/prive/remunerationpaie/v1?annee=',
-    'DOWNLOAD'      :   'https://ensap.gouv.fr/prive/telechargerremunerationpaie/v1?documentUuid='
+    'DOWNLOAD'      :   'https://ensap.gouv.fr/prive/telechargerremunerationpaie/v1?documentUuid=',
+    'HABILITATION'  :   'https://ensap.gouv.fr/prive/initialiserhabilitation/v1'
 }
 
 CODE_AUTH = {
@@ -93,7 +95,7 @@ class Connector:
             List: data json of get request
         """
         liste_year = self.s.get(URL['REMUNERATION'] + year)
-        print(liste_year.json())
+        # print(liste_year.json())
         return liste_year.json()
 
     def parse_documents(self, files: List) -> List:
@@ -107,6 +109,8 @@ class Connector:
 
         docs = []
         for file in files:
+            doc = {}
+
             uuid = file['documentUuid']
 
             fileurl = URL['DOWNLOAD'] + uuid
@@ -116,18 +120,19 @@ class Connector:
             filename = filename.replace('_BP_', '_Bulletin_de_paie_')
             filename = filename.replace('_DR_', '_Décompte_de_rappel_')
 
+            doc['download_url'] = fileurl
+            doc['filename'] = filename
+            doc['year'] = file['annee']
+
             # Create tag key
             if not file['libelle3']:
-                tag = 'Attestation_fiscale'
+                doc['tag'] = 'AF'
+                doc['month'] = ''
             else:
-                tag = file['libelle1'].split()[0]
-
-            doc = {
-                'download_url': fileurl,
-                'filename': filename,
-                'year': file['annee'],
-                'tag': tag
-            }
+                doc['tag'] = 'BP'
+                month = file['libelle1'].split()[0].upper()
+                datetime_object = dateparser.parse(month)
+                doc['month'] = datetime_object.month
 
             docs.append(doc)
         return docs
@@ -144,9 +149,10 @@ class Connector:
             download_url = doc['download_url']
             filename = doc['filename']
             year = str(doc['year'])
+            month = str(doc['month'])
             tag = doc['tag']
 
-            dir_path = os.path.join(dest_folder, year, tag)
+            dir_path = os.path.join(dest_folder, year, month, tag)
             if not os.path.exists(dir_path):
                 os.makedirs(dir_path)  # create folder if it does not exist
 
@@ -164,3 +170,19 @@ class Connector:
                             os.fsync(f.fileno())
             else:  # HTTP status code 4XX/5XX
                 print("Download failed: status code {}\n{}".format(req.status_code, req.text))
+
+    def filter_by_month(self, docs: List, month: int) -> Dict:
+        """Get list of document filter by specific month
+
+        Args:
+            docs (List): List of information document
+            month (str): dat
+
+        Returns:
+            Dict: [description]
+        """
+        res = []
+        for doc in docs:
+            if doc['month'] == month :
+                res.append(doc)
+        return res
